@@ -1,3 +1,5 @@
+using System.Globalization;
+using System.Threading;
 using System.Threading.Tasks;
 using ExhaustiveMatching.Analyzer.Testing.Helpers;
 using ExhaustiveMatching.Analyzer.Testing.Verifiers;
@@ -8,6 +10,13 @@ namespace ExhaustiveMatching.Analyzer.Tests
 {
     public class SwitchStatementAnalyzerTests : DiagnosticVerifier
     {
+        public SwitchStatementAnalyzerTests()
+        {
+            // Set the culture to English for all tests
+            Thread.CurrentThread.CurrentCulture = CultureInfo.InvariantCulture;
+            Thread.CurrentThread.CurrentUICulture = CultureInfo.InvariantCulture;
+        }
+
         [Fact]
         public async Task SwitchOnEnumThrowingInvalidEnumIsNotExhaustiveReportsDiagnostic()
         {
@@ -551,6 +560,119 @@ namespace TestNamespace
         }";
 
             var source = CodeContext.Result(args, test);
+
+            await VerifyCSharpDiagnosticsAsync(source);
+        }
+
+        [Fact]
+        public async Task SwitchOnStructurallyClosedHierarchyThrowingExhaustiveMatchFailedIsNotExhaustiveReportsDiagnostic()
+        {
+            const string args = "Result result";
+            const string test = @"
+        ◊1⟦switch⟧ (result)
+        {
+            case Result.Error error:
+                Console.WriteLine(""Error: "" + error);
+                break;
+            default:
+                throw ExhaustiveMatch.Failed(result);
+        }";
+
+            var source = CodeContext.Hierarchy(args, test);
+            var expectedSuccess = DiagnosticResult
+                .Error("EM0003", "Subtype not handled by switch: TestNamespace.Success")
+                .AddLocation(source, 1);
+
+            await VerifyCSharpDiagnosticsAsync(source, expectedSuccess);
+        }
+
+        [Fact]
+        public async Task SwitchOnStructurallyClosedHierarchyThrowingExhaustiveMatchDoesNotReportsDiagnostic1()
+        {
+            const string args = "Result result";
+            const string test = @"
+        ◊1⟦switch⟧ (result)
+        {
+            case Result.Error error:
+                Console.WriteLine(""Error: "" + error);
+                break;
+            case Result.Success success:
+                Console.WriteLine(""Success: "" + success);
+                break;
+            default:
+                throw ExhaustiveMatch.Failed(result);
+        }";
+
+            var source = CodeContext.Hierarchy(args, test);
+
+            await VerifyCSharpDiagnosticsAsync(source);
+        }
+
+        [Fact]
+        public async Task SwitchOnStructurallyClosedHierarchyThrowingExhaustiveMatchDoesNotReportsDiagnostic2()
+        {
+            const string args = "Result result";
+            const string test = @"
+        ◊1⟦switch⟧ (result)
+        {
+            case Result.Error.Technical error1:
+                Console.WriteLine(""Error: "" + error1);
+                break;
+            case Result.Error.Operational error2:
+                Console.WriteLine(""Error: "" + error2);
+                break;
+            case Result.Success success:
+                Console.WriteLine(""Success: "" + success);
+                break;
+            default:
+                throw ExhaustiveMatch.Failed(result);
+        }";
+
+            var source = CodeContext.Hierarchy(args, test);
+
+            await VerifyCSharpDiagnosticsAsync(source);
+        }
+
+        [Fact]
+        public async Task SwitchOnStructurallyClosedHierarchyRecordThrowingExhaustiveMatchFailedIsNotExhaustiveReportsDiagnostic()
+        {
+            const string args = "Result result";
+            const string test = @"
+        ◊1⟦switch⟧ (result)
+        {
+            case Result.Error error:
+                Console.WriteLine(""Error: "" + error);
+                break;
+            default:
+                throw ExhaustiveMatch.Failed(result);
+        }";
+
+            var source = CodeContext.HierarchyRecord(args, test);
+            var expectedSuccess = DiagnosticResult
+                .Error("EM0003", "Subtype not handled by switch: TestNamespace.Success")
+                .AddLocation(source, 1);
+
+            await VerifyCSharpDiagnosticsAsync(source, expectedSuccess);
+        }
+
+        [Fact]
+        public async Task SwitchOnStructurallyClosedHierarchyRecordThrowingExhaustiveMatchDoesNotReportsDiagnostic()
+        {
+            const string args = "Result result";
+            const string test = @"
+        ◊1⟦switch⟧ (result)
+        {
+            case Result.Error error:
+                Console.WriteLine(""Error: "" + error);
+                break;
+            case Result.Success success:
+                Console.WriteLine(""Success: "" + success);
+                break;
+            default:
+                throw ExhaustiveMatch.Failed(result);
+        }";
+
+            var source = CodeContext.HierarchyRecord(args, test);
 
             await VerifyCSharpDiagnosticsAsync(source);
         }

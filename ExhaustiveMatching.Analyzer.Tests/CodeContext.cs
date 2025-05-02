@@ -134,5 +134,84 @@ namespace System.Runtime.CompilerServices {{
 }}";
             return string.Format(context, args, body);
         }
+
+        public static string Hierarchy(string args, string body)
+        {
+            const string context = @"using System;
+using System;
+using System.Collections.Generic;
+using ExhaustiveMatching;
+using TestNamespace;
+
+class TestClass
+{{
+    void TestMethod({0})
+    {{{1}
+    }}
+}}
+
+namespace TestNamespace
+{{
+    public abstract class Result {{
+        private Result() {{ }}
+
+        public sealed class Success : Result {{
+            public Success() {{ }}
+        }}
+
+        public abstract class Error : Result {{
+            private Error() {{ }}
+            public sealed class Technical : Error {{
+                public Technical() {{ }}
+            }}
+            public sealed class Operational : Error {{
+                public Operational() {{ }}
+            }}
+        }}
+    }}
+}}";
+            return string.Format(context, args, body);
+        }
+
+        public static string HierarchyRecord(string args, string body)
+        {
+            const string context = @"using System;
+using System;
+using System.Collections.Generic;
+using ExhaustiveMatching;
+using TestNamespace;
+
+class TestClass
+{{
+    void TestMethod({0})
+    {{{1}
+    }}
+}}
+
+namespace TestNamespace
+{{
+    public abstract record Result {{
+        private Result() {{ }}
+
+        public sealed record Success() : Result;
+
+        public abstract record Error : Result {{
+            private Error() {{ }}
+            public sealed record Technical() : Error {{ }}
+            public sealed record Operational() : Error {{ }}    
+        }}
+    }}
+}}
+
+namespace System.Runtime.CompilerServices {{
+    /// <summary>
+    /// Reserved to be used by the compiler for tracking metadata.
+    /// This class should not be used by developers in source code.
+    /// </summary>
+    internal static class IsExternalInit {{
+    }}
+}}";
+            return string.Format(context, args, body);
+        }
     }
 }

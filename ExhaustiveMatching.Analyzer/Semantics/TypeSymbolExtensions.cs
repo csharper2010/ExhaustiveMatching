@@ -180,30 +180,48 @@ namespace ExhaustiveMatching.Analyzer.Semantics
 
         public static bool TryGetStructurallyClosedTypeCases(this ITypeSymbol rootType, SyntaxNodeAnalysisContext context, out HashSet<ITypeSymbol> allCases)
         {
-            allCases = new HashSet<ITypeSymbol>();
+            var result = new HashSet<ITypeSymbol>(SymbolEqualityComparer.Default);
 
-            if (rootType is INamedTypeSymbol namedType
-                && rootType.TypeKind != TypeKind.Error
-                && namedType.InstanceConstructors
-                    .All(c => c.DeclaredAccessibility == Accessibility.Private
-                    || rootType.IsRecord && c.DeclaredAccessibility == Accessibility.Protected && c.Parameters.Length == 1 && SymbolEqualityComparer.Default.Equals(c.Parameters[0].Type, rootType)))
+            if (TryRecursive(rootType, isRoot: true))
             {
+                allCases = result;
+                return true;
+            }
+            allCases = new HashSet<ITypeSymbol>(SymbolEqualityComparer.Default);
+            return false;
+            
 
-                var nestedTypes = context.SemanticModel.LookupSymbols(0, rootType)
-                    .OfType<ITypeSymbol>()
-                    .Where(t => t.IsSubtypeOf(rootType))
-                    .ToArray();
-
-                if (nestedTypes.All(t => t.IsSealed || t is INamedTypeSymbol n && n.InstanceConstructors.All(c => c.DeclaredAccessibility == Accessibility.Private)))
+            bool TryRecursive(ITypeSymbol currentSymbol, bool isRoot) {
+                if (currentSymbol is INamedTypeSymbol namedType
+                    && currentSymbol.TypeKind != TypeKind.Error
+                    && (currentSymbol.IsSealed
+                        || namedType.InstanceConstructors
+                            .All(c => c.DeclaredAccessibility == Accessibility.Private
+                                      || currentSymbol.IsRecord && c.DeclaredAccessibility == Accessibility.Protected && c.Parameters.Length == 1 && SymbolEqualityComparer.Default.Equals(c.Parameters[0].Type, currentSymbol))))
                 {
-                    allCases.Add(rootType);
-                    allCases.UnionWith(nestedTypes);
+                    result.Add(currentSymbol);
 
+                    var nestedTypes = context.SemanticModel.LookupSymbols(0, currentSymbol)
+                        .OfType<ITypeSymbol>()
+                        .Where(t => t.IsDirectSubtypeOf(currentSymbol))
+                        .ToArray();
+
+                    if (isRoot && nestedTypes.Length == 0)
+                    {
+                        return false;
+                    }
+
+                    foreach (var t in nestedTypes)
+                    {
+                        if (!TryRecursive(t, isRoot: false))
+                        {
+                            return false;
+                        }
+                    }
                     return true;
                 }
+                return false;
             }
-
-            return false;
         }
     }
 }
